@@ -202,6 +202,9 @@ class FlowQA(nn.Module):
         x1_cove_high = Variable(FloatTensor())
         x2_cove_mid = Variable(FloatTensor())
         x2_cove_high = Variable(FloatTensor())
+        if torch.cuda.is_available():
+            x1_cove_high.cuda()
+            x2_cove_high.cuda()
         if self.opt['CoVe_opt'] > 0:
             x1_cove_mid, x1_cove_high = self.CoVe(x1, x1_mask)
             x2_cove_mid, x2_cove_high = self.CoVe(x2, x2_mask)
@@ -243,6 +246,8 @@ class FlowQA(nn.Module):
 
         x1_emb_expand = expansion_for_doc(x1_emb)
         x1_cove_high_expand = Variable(FloatTensor())
+        if torch.cuda.is_available():
+            x1_cove_high.cuda()
         if self.opt['CoVe_opt'] > 0:
             x1_cove_high_expand = expansion_for_doc(x1_cove_high)
         #x1_elmo_expand = expansion_for_doc(x1_elmo)
