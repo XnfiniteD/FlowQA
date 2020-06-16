@@ -286,9 +286,9 @@ class FlowQA(nn.Module):
         doc_hiddens_flow = flow_operation(doc_hiddens, self.dialog_flow1)
 
         doc_abstr_ls.append(doc_hiddens)
-        if self.opt['CoVe_opt']:
-            doc_hiddens = self.doc_rnn2(torch.cat((doc_hiddens, doc_hiddens_flow, x1_cove_high_expand), dim=2), x1_mask)
         doc_hiddens = self.doc_rnn2(torch.cat((doc_hiddens, doc_hiddens_flow), dim=2), x1_mask)
+        if self.opt['CoVe_opt'] > 0:
+            doc_hiddens = self.doc_rnn2(torch.cat((doc_hiddens, doc_hiddens_flow, x1_cove_high_expand), dim=2), x1_mask)
         doc_hiddens_flow = flow_operation(doc_hiddens, self.dialog_flow2)
         doc_abstr_ls.append(doc_hiddens)
 
@@ -299,15 +299,17 @@ class FlowQA(nn.Module):
 
         # Encode question with RNN
         _, que_abstr_ls = self.question_rnn(x2_input, x2_mask, return_list=True)
-        # _, que_abstr_ls = self.question_rnn(x2_input, x2_mask, return_list=True, additional_x=x2_cove_high)
+        if self.opt['CoVe_opt'] > 0:
+            _, que_abstr_ls = self.question_rnn(x2_input, x2_mask, return_list=True, additional_x=x2_cove_high)
 
         # Final question layer
         question_hiddens = self.high_lvl_qrnn(torch.cat(que_abstr_ls, 2), x2_mask)
         que_abstr_ls += [question_hiddens]
 
         # Main Attention Fusion Layer
-        doc_info = self.deep_attn([torch.cat([x1_emb_expand, x1_cove_high_expand], 2)], doc_abstr_ls,
-        [torch.cat([x2_emb, x2_cove_high], 2)], que_abstr_ls, x1_mask, x2_mask)
+        doc_info = self.deep_attn([torch.cat([x1_emb_expand], 2)], doc_abstr_ls, [torch.cat([x2_emb], 2)], que_abstr_ls, x1_mask, x2_mask)
+        if self.opt['CoVe_opt'] > 0:
+            doc_info = self.deep_attn([torch.cat([x1_emb_expand, x1_cove_high_expand], 2)], doc_abstr_ls, [torch.cat([x2_emb, x2_cove_high], 2)], que_abstr_ls, x1_mask, x2_mask)
 
         doc_hiddens = self.deep_attn_rnn(torch.cat((doc_info, doc_hiddens_flow), dim=2), x1_mask)
         doc_hiddens_flow = flow_operation(doc_hiddens, self.dialog_flow3)
