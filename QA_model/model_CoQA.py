@@ -49,8 +49,6 @@ class QAModel(object):
         else:
             raise RuntimeError('Unsupported optimizer: %s' % opt['optimizer'])
         if state_dict:
-            if self.opt['cuda']:
-                self.optimizer.cuda()
             self.optimizer.load_state_dict(state_dict['optimizer'])
 
         if opt['fix_embeddings']:
