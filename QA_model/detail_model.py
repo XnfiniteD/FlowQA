@@ -246,10 +246,10 @@ class FlowQA(nn.Module):
 
         x1_emb_expand = expansion_for_doc(x1_emb)
         x1_cove_high_expand = Variable(FloatTensor())
-        # if torch.cuda.is_available():
-        #     x1_cove_high_expand.cuda()
         if self.opt['CoVe_opt'] > 0:
             x1_cove_high_expand = expansion_for_doc(x1_cove_high)
+        if torch.cuda.is_available():
+            x1_cove_high_expand.cuda()
         #x1_elmo_expand = expansion_for_doc(x1_elmo)
         if self.opt['no_em']:
             x1_f = x1_f[:, :, :, 3:]
@@ -286,7 +286,9 @@ class FlowQA(nn.Module):
         doc_hiddens_flow = flow_operation(doc_hiddens, self.dialog_flow1)
 
         doc_abstr_ls.append(doc_hiddens)
-
+        print(doc_hiddens.is_cuda())
+        print(doc_hiddens_flow.is_cuda())
+        print(x1_cove_high_expand.is_cuda())
         doc_hiddens = self.doc_rnn2(torch.cat((doc_hiddens, doc_hiddens_flow, x1_cove_high_expand), dim=2), x1_mask)
         doc_hiddens_flow = flow_operation(doc_hiddens, self.dialog_flow2)
         doc_abstr_ls.append(doc_hiddens)
