@@ -166,7 +166,6 @@ class QAModel(object):
 
         predictions = []
         max_len = self.opt['max_len'] or score_s.size(2)
-
         for i in range(overall_mask.size(0)):
             for j in range(overall_mask.size(1)):
                 if overall_mask[i, j] == 0: # this dialog has ended
@@ -185,7 +184,10 @@ class QAModel(object):
                     scores.triu_().tril_(max_len - 1)
                     scores = scores.numpy()
                     s_idx, e_idx = np.unravel_index(np.argmax(scores), scores.shape)
-
+                    print(s_idx)
+                    print(e_idx)
+                    print(len(spans[i]))
+                    print(spans[i][0])
                     s_offset, e_offset = spans[i][s_idx][0], spans[i][e_idx][1]
                     predictions.append(text[i][s_offset:e_offset])
 

@@ -39,7 +39,7 @@ parser.add_argument('--eval_per_epoch', type=int, default=1,
 parser.add_argument('--MTLSTM_path', default='glove/MT-LSTM.pth')
 parser.add_argument('--save_all', dest='save_best_only', action='store_false', help='save all models.')
 parser.add_argument('--do_not_save', action='store_true', help='don\'t save any model')
-parser.add_argument('--save_for_predict', action='store_true')
+parser.add_argument('--save_for_predict', action='store_true', default=True)
 parser.add_argument('--seed', type=int, default=1023,
                     help='random seed for data shuffling, dropout, etc.')
 parser.add_argument('--cuda', type=bool, default=torch.cuda.is_available(),
@@ -63,7 +63,7 @@ parser.add_argument('-lr', '--learning_rate', type=float, default=0.1,
                     help='only applied to SGD.')
 parser.add_argument('-mm', '--momentum', type=float, default=0,
                     help='only applied to SGD.')
-parser.add_argument('-tp', '--tune_partial', type=int, default=1000,
+parser.add_argument('-tp', '--tune_partial', type=int, default=100,
                     help='finetune top-x embeddings (including <PAD>, <UNK>).')
 parser.add_argument('--fix_embeddings', action='store_true',
                     help='if true, `tune_partial` will be ignored.')

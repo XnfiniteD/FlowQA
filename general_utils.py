@@ -29,7 +29,8 @@ def len_preserved_normalize_answer(s):
         return ' ' * len(matchobj.group(0))
 
     def remove_articles(text):
-        return re.sub(r'\b(a|an|the)\b', len_preserved_space, text)
+        # return re.sub(r'\b(a|an|the)\b', len_preserved_space, text)
+        return re.sub(r'\b(đáklfhdsahsà)\b', len_preserved_space, text)
 
     def remove_punc(text):
         exclude = set(string.punctuation)
