@@ -246,8 +246,8 @@ class FlowQA(nn.Module):
 
         x1_emb_expand = expansion_for_doc(x1_emb)
         x1_cove_high_expand = Variable(FloatTensor())
-        if torch.cuda.is_available():
-            x1_cove_high_expand.cuda()
+        # if torch.cuda.is_available():
+        #     x1_cove_high_expand.cuda()
         if self.opt['CoVe_opt'] > 0:
             x1_cove_high_expand = expansion_for_doc(x1_cove_high)
         #x1_elmo_expand = expansion_for_doc(x1_elmo)
