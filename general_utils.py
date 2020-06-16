@@ -114,6 +114,7 @@ def space_extend(matchobj):
 def pre_proc(text):
     # make hyphens, spaces clean
     text = re.sub(u'-|\u2010|\u2011|\u2012|\u2013|\u2014|\u2015|%|\[|\]|:|\(|\)|/', space_extend, text)
+    text = re.sub(u'\\xa0', ' ', text)
     text = text.strip(' \n')
     text = re.sub('\s+', ' ', text)
     return text
@@ -144,6 +145,7 @@ def feature_gen(C_docs, Q_CID, Q_docs, no_match):
     return C_tags, C_ents, C_features
 
 def get_context_span(context, context_token):
+    context = re.sub(u'\\xa0', ' ', context)
     p_str = 0
     p_token = 0
     t_span = []
@@ -155,6 +157,9 @@ def get_context_span(context, context_token):
         token = context_token[p_token]
         token_len = len(token)
         if context[p_str:p_str + token_len] != token:
+            print(repr(context[p_str:p_str + token_len]))
+            print(repr(token))
+            print(token)
             log.info("Something wrong with get_context_span()")
             return []
         t_span.append((p_str, p_str + token_len))

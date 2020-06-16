@@ -161,7 +161,7 @@ trC_ids = token2id(trC_tokens, tr_vocab, unk_id=1)
 trQ_ids = token2id(trQ_tokens, tr_vocab, unk_id=1)
 trQ_tokens = [["<S>"] + doc + ["</S>"] for doc in trQ_tokens]
 trQ_ids = [[2] + qsent + [3] for qsent in trQ_ids]
-print(trQ_ids[:10])
+# print(trQ_ids[:10])
 # tags
 vocab_tag = [''] + list(nlp.tagger.labels)
 trC_tag_ids = token2id(trC_tags, vocab_tag)
@@ -257,7 +257,7 @@ dev = pd.DataFrame(dev, columns=['context_idx', 'question', 'answer', 'answer_st
                                  'rationale_start', 'rationale_end', 'answer_choice'])
 log.info('dev json data flattened.')
 
-print(dev)
+# print(dev)
 
 devC_iter = (pre_proc(c) for c in dev_context)
 devQ_iter = (pre_proc(q) for q in dev.question)
