@@ -194,7 +194,7 @@ def main():
         batches = BatchGen_CoQA(dev, batch_size=args.batch_size, evaluation=True, gpu=args.cuda, dialog_ctx=args.explicit_dialog_ctx)
         predictions = []
         for batch in batches:
-            phrases, noans = model.predict(batch)
+            phrases = model.predict(batch)
             predictions.extend(phrases)
         f1 = CoQAEval.compute_turn_score_seq(predictions)
         log.info("[dev F1: {:.3f}]".format(f1))
