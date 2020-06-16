@@ -93,7 +93,7 @@ train = pd.DataFrame(train, columns=['context_idx', 'question', 'answer', 'answe
                                      'rationale_start', 'rationale_end', 'answer_choice'])
 log.info('train json data flattened.')
 
-print(train)
+# print(train)
 
 trC_iter = (pre_proc(c) for c in train_context)
 trQ_iter = (pre_proc(q) for q in train.question)

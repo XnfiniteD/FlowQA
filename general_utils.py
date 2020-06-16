@@ -87,7 +87,7 @@ def free_text_to_span(free_text, full_text):
     return full_text[char_i:char_j], char_i, char_j
 
 def flatten_json(file, proc_func):
-    with open(file, encoding="utf8") as f:
+    with open(file, encoding="utf-8") as f:
         data = json.load(f)['data']
     rows, contexts = [], []
     for i in range(len(data)):
@@ -97,7 +97,7 @@ def flatten_json(file, proc_func):
     return rows, contexts
 
 def normalize_text(text):
-    return unicodedata.normalize('NFD', text)
+    return unicodedata.normalize('NFC', text)
 
 def load_glove_vocab(file, wv_dim):
     vocab = set()
@@ -114,7 +114,6 @@ def space_extend(matchobj):
 def pre_proc(text):
     # make hyphens, spaces clean
     text = re.sub(u'-|\u2010|\u2011|\u2012|\u2013|\u2014|\u2015|%|\[|\]|:|\(|\)|/', space_extend, text)
-    text = re.sub(u'\\xa0', ' ', text)
     text = text.strip(' \n')
     text = re.sub('\s+', ' ', text)
     return text
@@ -145,7 +144,9 @@ def feature_gen(C_docs, Q_CID, Q_docs, no_match):
     return C_tags, C_ents, C_features
 
 def get_context_span(context, context_token):
-    context = re.sub(u'\\xa0', ' ', context)
+    context = unicodedata.normalize('NFC', context)
+    context = re.sub(u"\n|\\xa0", ' ', context)
+    context = re.sub(u'\s+', ' ', context)
     p_str = 0
     p_token = 0
     t_span = []
@@ -153,15 +154,16 @@ def get_context_span(context, context_token):
         if re.match('\s', context[p_str]):
             p_str += 1
             continue
-
         token = context_token[p_token]
         token_len = len(token)
         if context[p_str:p_str + token_len] != token:
+            # Miss spelling
             print(repr(context[p_str:p_str + token_len]))
             print(repr(token))
             print(token)
             log.info("Something wrong with get_context_span()")
-            return []
+            # return []
+            # t_span.append()
         t_span.append((p_str, p_str + token_len))
 
         p_str += token_len
