@@ -24,7 +24,8 @@ class CoQAEvaluator():
 
     @staticmethod
     def gold_answers_to_dict(gold_file):
-        dataset = json.load(open(gold_file))
+        with open(gold_file, 'r', encoding='utf-8') as f:
+            dataset = json.load(f)
         gold_dict = {}
         gold_list = []
         id_to_source = {}
@@ -34,7 +35,8 @@ class CoQAEvaluator():
             id_to_source[story_id] = source
             questions = story['questions']
             multiple_answers = [story['answers']]
-            multiple_answers += story['additional_answers'].values()
+            if 'additional_answers' in story:
+                multiple_answers += story['additional_answers'].values()
             for i, qa in enumerate(questions):
                 qid = qa['turn_id']
                 if i + 1 != qid:

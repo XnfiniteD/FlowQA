@@ -1,6 +1,8 @@
 import torch
 import pickle
 import torch.nn as nn
+from torch import FloatTensor
+from torch.autograd import Variable
 import torch.nn.functional as F
 from allennlp.modules.elmo import Elmo
 from allennlp.nn.util import remove_sentence_boundaries
@@ -42,6 +44,7 @@ class FlowQA(nn.Module):
         else:
             opt['fix_embeddings'] = True
             opt['tune_partial'] = 0
+        CoVe_size = 0
 
         if opt['CoVe_opt'] > 0:
             self.CoVe = layers.MTLSTM(opt, embedding)
@@ -195,7 +198,10 @@ class FlowQA(nn.Module):
 
             drnn_input_list.append(x1_emb)
             qrnn_input_list.append(x2_emb)
-
+        x1_cove_mid = Variable(FloatTensor())
+        x1_cove_high = Variable(FloatTensor())
+        x2_cove_mid = Variable(FloatTensor())
+        x2_cove_high = Variable(FloatTensor())
         if self.opt['CoVe_opt'] > 0:
             x1_cove_mid, x1_cove_high = self.CoVe(x1, x1_mask)
             x2_cove_mid, x2_cove_high = self.CoVe(x2, x2_mask)
@@ -236,7 +242,9 @@ class FlowQA(nn.Module):
             return z.unsqueeze(1).expand(z.size(0), x2_full.size(1), z.size(1), z.size(2)).contiguous().view(-1, z.size(1), z.size(2))
 
         x1_emb_expand = expansion_for_doc(x1_emb)
-        x1_cove_high_expand = expansion_for_doc(x1_cove_high)
+        x1_cove_high_expand = Variable(FloatTensor())
+        if self.opt['CoVe_opt'] > 0:
+            x1_cove_high_expand = expansion_for_doc(x1_cove_high)
         #x1_elmo_expand = expansion_for_doc(x1_elmo)
         if self.opt['no_em']:
             x1_f = x1_f[:, :, :, 3:]
@@ -284,7 +292,8 @@ class FlowQA(nn.Module):
         #    pass
 
         # Encode question with RNN
-        _, que_abstr_ls = self.question_rnn(x2_input, x2_mask, return_list=True, additional_x=x2_cove_high)
+        _, que_abstr_ls = self.question_rnn(x2_input, x2_mask, return_list=True)
+        # _, que_abstr_ls = self.question_rnn(x2_input, x2_mask, return_list=True, additional_x=x2_cove_high)
 
         # Final question layer
         question_hiddens = self.high_lvl_qrnn(torch.cat(que_abstr_ls, 2), x2_mask)

@@ -102,7 +102,8 @@ parser.add_argument('--no_elmo', dest='use_elmo', action='store_false')
 parser.add_argument('--no_em', action='store_true')
 
 parser.add_argument('--no_wemb', dest='use_wemb', action='store_false') # word embedding
-parser.add_argument('--CoVe_opt', type=int, default=1) # contexualized embedding option
+# parser.add_argument('--CoVe_opt', type=int, default=1) # contexualized embedding option
+parser.add_argument('--CoVe_opt', type=int, default=0) # contexualized embedding option
 parser.add_argument('--no_pos', dest='use_pos', action='store_false') # pos tagging
 parser.add_argument('--pos_size', type=int, default=51, help='how many kinds of POS tags.')
 parser.add_argument('--pos_dim', type=int, default=12, help='the embedding dimension for POS tags.')

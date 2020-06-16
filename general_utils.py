@@ -16,6 +16,8 @@ import numpy as np
 import pandas as pd
 from allennlp.modules.elmo import batch_to_ids
 
+log = logging.getLogger(__name__)
+
 #===========================================================================
 #================= All for preprocessing SQuAD data set ====================
 #===========================================================================
