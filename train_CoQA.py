@@ -169,6 +169,8 @@ def main():
             opt = checkpoint['config']
         state_dict = checkpoint['state_dict']
         model = QAModel(opt, train_embedding, state_dict)
+        if args.cuda:
+            model.cuda()
         epoch_0 = checkpoint['epoch'] + 1
         for i in range(checkpoint['epoch']):
             random.shuffle(list(range(len(train))))  # synchronize random seed
