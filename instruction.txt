@@ -1,0 +1,2 @@
+AllenNLP is not supporting Windows Platform
+--> USE LINUX

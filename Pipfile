@@ -11,6 +11,9 @@ pandas = "*"
 msgpack-python = "*"
 spacy = "*"
 vi-spacy-model = {file = "https://github.com/trungtv/vi_spacy/raw/master/packages/vi_spacy_model-0.2.1/dist/vi_spacy_model-0.2.1.tar.gz"}
+underthesea = "*"
+fasttext = "*"
+allennlp = "*"
 
 [requires]
 python_version = "3.6"

@@ -17,6 +17,7 @@ import pandas as pd
 from allennlp.modules.elmo import batch_to_ids
 import fasttext
 import fasttext.util
+from underthesea import ner
 
 
 log = logging.getLogger(__name__)
@@ -24,6 +25,17 @@ log = logging.getLogger(__name__)
 #===========================================================================
 #================= All for preprocessing SQuAD data set ====================
 #===========================================================================
+
+def ent_type_(token):
+    data = ner(token)[0]
+    if 'B-PER' in data or 'I-PER' in data:
+        return 'PER'
+    if 'B-ORG' in data or 'I-ORG' in data:
+        return 'ORG'
+    if 'B-LOC' in data or 'I-LOC' in data:
+        return 'LOC'
+    return ''
+
 
 def len_preserved_normalize_answer(s):
     """Lower text and remove punctuation, articles and extra whitespace."""
@@ -123,7 +135,8 @@ def pre_proc(text):
 
 def feature_gen(C_docs, Q_CID, Q_docs, no_match):
     C_tags = [[w.tag_ for w in doc] for doc in C_docs]
-    C_ents = [[w.ent_type_ for w in doc] for doc in C_docs]
+    # C_ents = [[w.ent_type_ for w in doc] for doc in C_docs]
+    C_ents = [[ent_type_(w) for w in doc] for doc in C_docs]
     C_features = []
 
     for question, context_id in zip(Q_docs, Q_CID):
