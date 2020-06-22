@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
 # Download QuAC
-mkdir -p QuAC_data
-wget https://s3.amazonaws.com/my89public/quac/train.json -O QuAC_data/train.json
-wget https://s3.amazonaws.com/my89public/quac/val.json -O QuAC_data/dev.json
+#mkdir -p QuAC_data
+#wget https://s3.amazonaws.com/my89public/quac/train.json -O QuAC_data/train.json
+#wget https://s3.amazonaws.com/my89public/quac/val.json -O QuAC_data/dev.json
 
 # Download CoQA
 mkdir -p CoQA
@@ -16,7 +16,7 @@ wget http://nlp.stanford.edu/data/glove.840B.300d.zip -O glove/glove.840B.300d.z
 unzip glove/glove.840B.300d.zip -d glove
 
 # Download CoVe
-wget https://s3.amazonaws.com/research.metamind.io/cove/wmtlstm-b142a7f2.pth -O glove/MT-LSTM.pth
+#wget https://s3.amazonaws.com/research.metamind.io/cove/wmtlstm-b142a7f2.pth -O glove/MT-LSTM.pth
 
 # Download SpaCy English language models
-python -m spacy download en
+#python -m spacy download en
