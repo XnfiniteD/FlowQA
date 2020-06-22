@@ -15,6 +15,9 @@ import json
 import numpy as np
 import pandas as pd
 from allennlp.modules.elmo import batch_to_ids
+import fasttext
+import fasttext.util
+
 
 log = logging.getLogger(__name__)
 
@@ -193,12 +196,15 @@ def build_embedding(embed_file, targ_vocab, wv_dim):
     emb[0] = 0 # <PAD> should be all 0 (using broadcast)
 
     w2id = {w: i for i, w in enumerate(targ_vocab)}
-    with open(embed_file, encoding="utf8") as f:
-        for line in f:
-            elems = line.split()
-            token = normalize_text(''.join(elems[0:-wv_dim]))
-            if token in w2id:
-                emb[w2id[token]] = [float(v) for v in elems[-wv_dim:]]
+    for token in w2id:
+        ft = fasttext.load_model(embed_file)
+        emb[w2id[token]] = ft.get_word_vector(token) 
+    # with open(embed_file, encoding="utf8") as f:
+    #     for line in f:
+    #         elems = line.split()
+    #         token = normalize_text(''.join(elems[0:-wv_dim]))
+    #         if token in w2id:
+    #             emb[w2id[token]] = [float(v) for v in elems[-wv_dim:]]
     return emb
 
 def token2id(docs, vocab, unk_id=None):
