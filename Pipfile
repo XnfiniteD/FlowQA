@@ -14,6 +14,8 @@ vi-spacy-model = {file = "https://github.com/trungtv/vi_spacy/raw/master/package
 underthesea = "*"
 fasttext = "*"
 allennlp = "*"
+torch = "*"
+pyvi = "*"
 
 [requires]
 python_version = "3.6"

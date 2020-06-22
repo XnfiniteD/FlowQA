@@ -27,7 +27,7 @@ log = logging.getLogger(__name__)
 #===========================================================================
 
 def ent_type_(token):
-    data = ner(token)[0]
+    data = ner(token.text)[0]
     if 'B-PER' in data or 'I-PER' in data:
         return 'PER'
     if 'B-ORG' in data or 'I-ORG' in data:
@@ -209,8 +209,8 @@ def build_embedding(embed_file, targ_vocab, wv_dim):
     emb[0] = 0 # <PAD> should be all 0 (using broadcast)
 
     w2id = {w: i for i, w in enumerate(targ_vocab)}
+    ft = fasttext.load_model('fasttext/wiki.vi.bin')
     for token in w2id:
-        ft = fasttext.load_model(embed_file)
         emb[w2id[token]] = ft.get_word_vector(token) 
     # with open(embed_file, encoding="utf8") as f:
     #     for line in f:
