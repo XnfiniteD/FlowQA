@@ -5,3 +5,5 @@ pandas
 msgpack-python
 allennlp
 pyvi
+fasttext
+underthesea

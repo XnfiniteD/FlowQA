@@ -15,12 +15,27 @@ import json
 import numpy as np
 import pandas as pd
 from allennlp.modules.elmo import batch_to_ids
+import fasttext
+import fasttext.util
+from underthesea import ner
+
 
 log = logging.getLogger(__name__)
 
 #===========================================================================
 #================= All for preprocessing SQuAD data set ====================
 #===========================================================================
+
+def ent_type_(token):
+    data = ner(token.text)[0]
+    if 'B-PER' in data or 'I-PER' in data:
+        return 'PER'
+    if 'B-ORG' in data or 'I-ORG' in data:
+        return 'ORG'
+    if 'B-LOC' in data or 'I-LOC' in data:
+        return 'LOC'
+    return ''
+
 
 def len_preserved_normalize_answer(s):
     """Lower text and remove punctuation, articles and extra whitespace."""
@@ -120,7 +135,8 @@ def pre_proc(text):
 
 def feature_gen(C_docs, Q_CID, Q_docs, no_match):
     C_tags = [[w.tag_ for w in doc] for doc in C_docs]
-    C_ents = [[w.ent_type_ for w in doc] for doc in C_docs]
+    # C_ents = [[w.ent_type_ for w in doc] for doc in C_docs]
+    C_ents = [[ent_type_(w) for w in doc] for doc in C_docs]
     C_features = []
 
     for question, context_id in zip(Q_docs, Q_CID):
@@ -193,12 +209,15 @@ def build_embedding(embed_file, targ_vocab, wv_dim):
     emb[0] = 0 # <PAD> should be all 0 (using broadcast)
 
     w2id = {w: i for i, w in enumerate(targ_vocab)}
-    with open(embed_file, encoding="utf8") as f:
-        for line in f:
-            elems = line.split()
-            token = normalize_text(''.join(elems[0:-wv_dim]))
-            if token in w2id:
-                emb[w2id[token]] = [float(v) for v in elems[-wv_dim:]]
+    ft = fasttext.load_model('fasttext/wiki.vi.bin')
+    for token in w2id:
+        emb[w2id[token]] = ft.get_word_vector(token) 
+    # with open(embed_file, encoding="utf8") as f:
+    #     for line in f:
+    #         elems = line.split()
+    #         token = normalize_text(''.join(elems[0:-wv_dim]))
+    #         if token in w2id:
+    #             emb[w2id[token]] = [float(v) for v in elems[-wv_dim:]]
     return emb
 
 def token2id(docs, vocab, unk_id=None):
