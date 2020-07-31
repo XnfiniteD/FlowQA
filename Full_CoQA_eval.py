@@ -18,6 +18,10 @@ import numpy as np
 from QA_model.model_CoQA import QAModel
 from CoQA_eval import CoQAEvaluator
 from general_utils import score, BatchGen_CoQA
+from general_utils import flatten_json, free_text_to_span, normalize_text, build_embedding, load_glove_vocab, pre_proc, \
+    get_context_span, find_answer_span, feature_gen, token2id
+from allennlp.modules.elmo import batch_to_ids
+
 
 parser = argparse.ArgumentParser(
     description='Predict using a Dialog QA model.'
@@ -130,7 +134,7 @@ def dev_eval():
     f1 = CoQAEval.compute_turn_score_seq(predictions)
     log.warning("Test F1: {:.3f}".format(f1 * 100.0))
 
-def dev_eval():
+def test_eval():
     log.info('[program starts.]')
     checkpoint = torch.load(args.model)
     opt = checkpoint['config']
@@ -142,7 +146,8 @@ def dev_eval():
     state_dict = checkpoint['state_dict']
     log.info('[model loaded.]')
 
-    test, test_embedding = load_dev_data(opt)
+    build_test_data(opt, "CoQA/test.json")
+    test, test_embedding = load_test_data(opt)
     model = QAModel(opt, state_dict = state_dict)
     CoQAEval = CoQAEvaluator("CoQA/test.json")
     log.info('[Data loaded.]')
@@ -228,6 +233,156 @@ def load_dev_data(opt): # can be extended to true test set
           }
 
     return dev, embedding
+
+def build_test_data(opt, dev_file):
+    def proc_dev(ith, article):
+        rows = []
+        context = article['story']
+
+        for j, (question, answers) in enumerate(zip(article['questions'], article['answers'])):
+            gold_answer = answers['input_text']
+            span_answer = answers['span_text']
+
+            answer, char_i, char_j = free_text_to_span(gold_answer, span_answer)
+            answer_choice = 0 if answer == '__NA__' else \
+                1 if answer == '__YES__' else \
+                    2 if answer == '__NO__' else \
+                        3  # Not a yes/no question
+
+            if answer_choice == 3:
+                answer_start = answers['span_start'] + char_i
+                answer_end = answers['span_start'] + char_j
+            else:
+                answer_start, answer_end = -1, -1
+
+            rationale = answers['span_text']
+            rationale_start = answers['span_start']
+            rationale_end = answers['span_end']
+
+            q_text = question['input_text']
+            if j > 0:
+                q_text = article['answers'][j - 1]['input_text'] + " // " + q_text
+
+            rows.append(
+                (ith, q_text, answer, answer_start, answer_end, rationale, rationale_start, rationale_end, answer_choice))
+        return rows, context
+
+
+    dev, dev_context = flatten_json(dev_file, proc_dev)
+    dev = pd.DataFrame(dev, columns=['context_idx', 'question', 'answer', 'answer_start', 'answer_end', 'rationale',
+                                    'rationale_start', 'rationale_end', 'answer_choice'])
+    # log.info('dev json data flattened.')
+
+    # print(dev)
+
+    devC_iter = (pre_proc(c) for c in dev_context)
+    devQ_iter = (pre_proc(q) for q in dev.question)
+    devC_docs = [doc for doc in nlp.pipe(
+        devC_iter, batch_size=64, n_threads=args.threads)]
+    devQ_docs = [doc for doc in nlp.pipe(
+        devQ_iter, batch_size=64, n_threads=args.threads)]
+
+    # tokens
+    devC_tokens = [[re.sub(r'_', ' ', normalize_text(w.text)) for w in doc] for doc in devC_docs]
+    devQ_tokens = [[re.sub(r'_', ' ', normalize_text(w.text)) for w in doc] for doc in devQ_docs]
+    devC_unnorm_tokens = [[re.sub(r'_', ' ', w.text) for w in doc] for doc in devC_docs]
+    # log.info('All tokens for dev are obtained.')
+
+    dev_context_span = [get_context_span(a, b) for a, b in zip(dev_context, devC_unnorm_tokens)]
+    # log.info('context span for dev is generated.')
+
+    ans_st_token_ls, ans_end_token_ls = [], []
+    for ans_st, ans_end, idx in zip(dev.answer_start, dev.answer_end, dev.context_idx):
+        ans_st_token, ans_end_token = find_answer_span(dev_context_span[idx], ans_st, ans_end)
+        ans_st_token_ls.append(ans_st_token)
+        ans_end_token_ls.append(ans_end_token)
+
+    ration_st_token_ls, ration_end_token_ls = [], []
+    for ration_st, ration_end, idx in zip(dev.rationale_start, dev.rationale_end, dev.context_idx):
+        ration_st_token, ration_end_token = find_answer_span(dev_context_span[idx], ration_st, ration_end)
+        ration_st_token_ls.append(ration_st_token)
+        ration_end_token_ls.append(ration_end_token)
+
+    dev['answer_start_token'], dev['answer_end_token'] = ans_st_token_ls, ans_end_token_ls
+    dev['rationale_start_token'], dev['rationale_end_token'] = ration_st_token_ls, ration_end_token_ls
+
+    initial_len = len(dev)
+    dev.dropna(inplace=True)  # modify self DataFrame
+    log.info('drop {0}/{1} inconsistent samples.'.format(initial_len - len(dev), initial_len))
+    # log.info('answer span for dev is generated.')
+
+    # features
+    devC_tags, devC_ents, devC_features = feature_gen(devC_docs, dev.context_idx, devQ_docs, args.no_match)
+    log.info('features for dev is generated: {}, {}, {}'.format(len(devC_tags), len(devC_ents), len(devC_features)))
+
+
+    def build_dev_vocab(questions, contexts):  # most vocabulary comes from tr_vocab
+        existing_vocab = set(tr_vocab)
+        new_vocab = list(
+            set([w for doc in questions + contexts for w in doc if w not in existing_vocab and w in glove_vocab]))
+        vocab = tr_vocab + new_vocab
+        log.info('train vocab {0}, total vocab {1}'.format(len(tr_vocab), len(vocab)))
+        return vocab
+
+
+    # vocab
+    dev_vocab = build_dev_vocab(devQ_tokens, devC_tokens)  # tr_vocab is a subset of dev_vocab
+    devC_ids = token2id(devC_tokens, dev_vocab, unk_id=1)
+    devQ_ids = token2id(devQ_tokens, dev_vocab, unk_id=1)
+    devQ_tokens = [["<S>"] + doc + ["</S>"] for doc in devQ_tokens]
+    devQ_ids = [[2] + qsent + [3] for qsent in devQ_ids]
+    print(devQ_ids[:10])
+    # tags
+    devC_tag_ids = token2id(devC_tags, vocab_tag)  # vocab_tag same as training
+    # entities
+    devC_ent_ids = token2id(devC_ents, vocab_ent, unk_id=0)  # vocab_ent same as training
+    log.info('vocabulary for dev is built.')
+
+    dev_embedding = build_embedding(wv_file, dev_vocab, wv_dim)
+    # tr_embedding is a submatrix of dev_embedding
+    log.info('got embedding matrix for dev.')
+
+    # don't store row name in csv
+    # dev.to_csv('QuAC_data/dev.csv', index=False, encoding='utf8')
+
+    meta = {
+        'vocab': dev_vocab,
+        'embedding': dev_embedding.tolist()
+    }
+    with open('CoQA/test_meta.msgpack', 'wb') as f:
+        msgpack.dump(meta, f)
+
+    prev_CID, first_question = -1, []
+    for i, CID in enumerate(dev.context_idx):
+        if not (CID == prev_CID):
+            first_question.append(i)
+        prev_CID = CID
+
+    result = {
+        'question_ids': devQ_ids,
+        'context_ids': devC_ids,
+        'context_features': devC_features,  # exact match, tf
+        'context_tags': devC_tag_ids,  # POS tagging
+        'context_ents': devC_ent_ids,  # Entity recognition
+        'context': dev_context,
+        'context_span': dev_context_span,
+        '1st_question': first_question,
+        'question_CID': dev.context_idx.tolist(),
+        'question': dev.question.tolist(),
+        'answer': dev.answer.tolist(),
+        'answer_start': dev.answer_start_token.tolist(),
+        'answer_end': dev.answer_end_token.tolist(),
+        'rationale_start': dev.rationale_start_token.tolist(),
+        'rationale_end': dev.rationale_end_token.tolist(),
+        'answer_choice': dev.answer_choice.tolist(),
+        'context_tokenized': devC_tokens,
+        'question_tokenized': devQ_tokens
+    }
+    with open('CoQA/test_data.msgpack', 'wb') as f:
+        msgpack.dump(result, f)
+
+    log.info('saved test to disk.')
+
 
 if __name__ == '__main__':
     main()
