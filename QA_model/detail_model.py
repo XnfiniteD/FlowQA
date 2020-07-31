@@ -219,7 +219,7 @@ class FlowQA(nn.Module):
             drnn_input_list.append(x1_cove_mid)
             qrnn_input_list.append(x2_cove_mid)
 
-        if self.opt['use_elmo'] > 0:
+        if self.opt['use_elmo']:
             pass
             if not precomputed_elmo:
                 x1_elmo = self.elmo(x1_c)['elmo_representations'][0]#torch.zeros(x1_emb.size(0), x1_emb.size(1), 1024, dtype=x1_emb.dtype, layout=x1_emb.layout, device=x1_emb.device)
