@@ -239,7 +239,8 @@ class FlowQA(nn.Module):
         if self.opt['use_ner']:
             x1_ner_emb = self.ner_embedding(x1_ner)
             drnn_input_list.append(x1_ner_emb)
-        print(len(drnn_input_list))
+        for item in drnn_input_list:
+            print(item.size())
         x1_input = torch.cat(drnn_input_list, dim=2)
         x2_input = torch.cat(qrnn_input_list, dim=2)
 
