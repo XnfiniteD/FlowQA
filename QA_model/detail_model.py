@@ -1,4 +1,3 @@
-import logging
 import torch
 import pickle
 import torch.nn as nn
@@ -240,7 +239,7 @@ class FlowQA(nn.Module):
         if self.opt['use_ner']:
             x1_ner_emb = self.ner_embedding(x1_ner)
             drnn_input_list.append(x1_ner_emb)
-        log.info(drnn_input_list)
+        print(drnn_input_list)
 
         x1_input = torch.cat(drnn_input_list, dim=2)
         x2_input = torch.cat(qrnn_input_list, dim=2)
