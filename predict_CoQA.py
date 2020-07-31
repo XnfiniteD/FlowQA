@@ -88,7 +88,7 @@ def main():
     if args.cuda:
         model.cuda()
 
-    batches = BatchGen_CoQA(test, batch_size=args.batch_size, evaluation=True, gpu=args.cuda, dialog_ctx=opt['explicit_dialog_ctx'], precompute_elmo=16 // args.batch_size)
+    batches = BatchGen_CoQA(test, batch_size=args.batch_size, evaluation=True, gpu=args.cuda, dialog_ctx=opt['explicit_dialog_ctx'], precompute_elmo=args.batch_size)
     sample_idx = random.sample(range(len(batches)), args.show)
 
     with open("CoQA/dev.json", "r", encoding="utf8") as f:
