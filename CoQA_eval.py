@@ -106,7 +106,7 @@ class CoQAEvaluator():
         precision = 1.0 * num_same / len(pred_toks)
         recall = 1.0 * num_same / len(gold_toks)
         f1 = (2 * precision * recall) / (precision + recall)
-        return (f1, (precision, recall))
+        return [f1, (precision, recall)]
 
     @staticmethod
     def _compute_turn_score(a_gold_list, a_pred):
