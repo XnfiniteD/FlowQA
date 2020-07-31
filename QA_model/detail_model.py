@@ -218,7 +218,7 @@ class FlowQA(nn.Module):
             drnn_input_list.append(x1_cove_mid)
             qrnn_input_list.append(x2_cove_mid)
 
-        if self.opt['use_elmo']:
+        if self.opt['use_elmo'] > 0:
             if not precomputed_elmo:
                 x1_elmo = self.elmo(x1_c)['elmo_representations'][0]#torch.zeros(x1_emb.size(0), x1_emb.size(1), 1024, dtype=x1_emb.dtype, layout=x1_emb.layout, device=x1_emb.device)
             x2_elmo = self.elmo(x2_c)['elmo_representations'][0]#torch.zeros(x2_emb.size(0), x2_emb.size(1), 1024, dtype=x2_emb.dtype, layout=x2_emb.layout, device=x2_emb.device)
@@ -237,7 +237,8 @@ class FlowQA(nn.Module):
         if self.opt['use_ner']:
             x1_ner_emb = self.ner_embedding(x1_ner)
             drnn_input_list.append(x1_ner_emb)
-
+        for item in drnn_input_list:
+            print(item.size())
         x1_input = torch.cat(drnn_input_list, dim=2)
         x2_input = torch.cat(qrnn_input_list, dim=2)
 
