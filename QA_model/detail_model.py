@@ -228,7 +228,7 @@ class FlowQA(nn.Module):
             if self.opt['dropout_emb'] > 0:
                 x1_elmo = layers.dropout(x1_elmo, p=self.opt['dropout_emb'], training=self.training)
                 x2_elmo = layers.dropout(x2_elmo, p=self.opt['dropout_emb'], training=self.training)
-
+            print(x1_elmo.size())
             drnn_input_list.append(x1_elmo)
             qrnn_input_list.append(x2_elmo)
 
