@@ -229,8 +229,8 @@ class FlowQA(nn.Module):
                 x1_elmo = layers.dropout(x1_elmo, p=self.opt['dropout_emb'], training=self.training)
                 x2_elmo = layers.dropout(x2_elmo, p=self.opt['dropout_emb'], training=self.training)
 
-            drnn_input_list.append(x1_elmo)
-            qrnn_input_list.append(x2_elmo)
+            # drnn_input_list.append(x1_elmo)
+            # qrnn_input_list.append(x2_elmo)
 
         if self.opt['use_pos']:
             x1_pos_emb = self.pos_embedding(x1_pos)
