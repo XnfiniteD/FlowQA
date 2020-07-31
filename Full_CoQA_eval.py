@@ -66,7 +66,7 @@ formatter = logging.Formatter(fmt='%(asctime)s %(message)s', datefmt='%m/%d/%Y %
 ch.setFormatter(formatter)
 log.addHandler(ch)
 
-def main():
+def dev_eval():
     log.info('[program starts.]')
     checkpoint = torch.load(args.model)
     opt = checkpoint['config']
@@ -124,8 +124,72 @@ def main():
          "id": ids[0],
          "turn_id": ids[1],
          "answer": pred})
-    with open("model_prediction.json", "w", encoding="utf8") as f:
-        json.dump(official_predictions, f, ensure_ascii=False)
+    with open("model_dev_prediction.json", "w", encoding="utf8") as f:
+        json.dump(official_predictions, f)
+
+    f1 = CoQAEval.compute_turn_score_seq(predictions)
+    log.warning("Test F1: {:.3f}".format(f1 * 100.0))
+
+def dev_eval():
+    log.info('[program starts.]')
+    checkpoint = torch.load(args.model)
+    opt = checkpoint['config']
+    opt['task_name'] = 'CoQA'
+    opt['cuda'] = args.cuda
+    opt['seed'] = args.seed
+    if opt.get('do_hierarchical_query') is None:
+        opt['do_hierarchical_query'] = False
+    state_dict = checkpoint['state_dict']
+    log.info('[model loaded.]')
+
+    test, test_embedding = load_dev_data(opt)
+    model = QAModel(opt, state_dict = state_dict)
+    CoQAEval = CoQAEvaluator("CoQA/test.json")
+    log.info('[Data loaded.]')
+
+    model.setup_eval_embed(test_embedding)
+
+    if args.cuda:
+        model.cuda()
+
+    batches = BatchGen_CoQA(test, batch_size=args.batch_size, evaluation=True, gpu=args.cuda, dialog_ctx=opt['explicit_dialog_ctx'], precompute_elmo=args.batch_size)
+    sample_idx = random.sample(range(len(batches)), args.show)
+
+    with open("CoQA/test.json", "r", encoding="utf8") as f:
+        dev_data = json.load(f)
+
+    list_of_ids = []
+    for article in dev_data['data']:
+        id = article["id"]
+        for Qs in article["questions"]:
+            tid = Qs["turn_id"]
+            list_of_ids.append((id, tid))
+
+    predictions = []
+    for i, batch in enumerate(batches):
+        prediction = model.predict(batch)
+        predictions.extend(prediction)
+
+        if not (i in sample_idx):
+            continue
+
+        print("Story: ", batch[-4][0])
+        for j in range(len(batch[-2][0])):
+            print("Q: ", batch[-2][0][j])
+            print("A: ", prediction[j])
+            print("Gold A: ", batch[-1][0][j])
+            print("---")
+        print("")
+
+    assert(len(list_of_ids) == len(predictions))
+    official_predictions = []
+    for ids, pred in zip(list_of_ids, predictions):
+        official_predictions.append({
+         "id": ids[0],
+         "turn_id": ids[1],
+         "answer": pred})
+    with open("model_test_prediction.json", "w", encoding="utf8") as f:
+        json.dump(official_predictions, f)
 
     f1 = CoQAEval.compute_turn_score_seq(predictions)
     log.warning("Test F1: {:.3f}".format(f1 * 100.0))

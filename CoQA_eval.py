@@ -106,7 +106,7 @@ class CoQAEvaluator():
         precision = 1.0 * num_same / len(pred_toks)
         recall = 1.0 * num_same / len(gold_toks)
         f1 = (2 * precision * recall) / (precision + recall)
-        return f1
+        return f1, (precision, recall)
 
     @staticmethod
     def _compute_turn_score(a_gold_list, a_pred):
@@ -117,10 +117,10 @@ class CoQAEvaluator():
                 # exclude the current answer
                 gold_answers = a_gold_list[0:i] + a_gold_list[i + 1:]
                 em_sum += max(CoQAEvaluator.compute_exact(a, a_pred) for a in gold_answers)
-                f1_sum += max(CoQAEvaluator.compute_f1(a, a_pred) for a in gold_answers)
+                f1_sum += max(CoQAEvaluator.compute_f1(a, a_pred)[0] for a in gold_answers)
         else:
             em_sum += max(CoQAEvaluator.compute_exact(a, a_pred) for a in a_gold_list)
-            f1_sum += max(CoQAEvaluator.compute_f1(a, a_pred) for a in a_gold_list)
+            f1_sum += max(CoQAEvaluator.compute_f1(a, a_pred)[0] for a in a_gold_list)
 
         return {'em': em_sum / max(1, len(a_gold_list)), 'f1': f1_sum / max(1, len(a_gold_list))}
 
@@ -168,7 +168,7 @@ class CoQAEvaluator():
                     # exclude the current answer
                     gold_answers = self.gold_data[key][0:i] + self.gold_data[key][i + 1:]
                     em_sum += max(CoQAEvaluator.compute_exact(a, self.gold_data[key][i]) for a in gold_answers)
-                    f1_sum += max(CoQAEvaluator.compute_f1(a, self.gold_data[key][i]) for a in gold_answers)
+                    f1_sum += max(CoQAEvaluator.compute_f1(a, self.gold_data[key][i])[0] for a in gold_answers)
             else:
                 exit("Gold answers should be multiple: {}={}".format(key, self.gold_data[key]))
             exact_scores[key] = em_sum / len(self.gold_data[key])
