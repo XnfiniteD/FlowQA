@@ -10,6 +10,7 @@ from os.path import basename
 from shutil import copyfile
 from datetime import datetime
 from collections import Counter
+import multiprocessing
 import torch
 import msgpack
 import pickle
@@ -21,6 +22,7 @@ from general_utils import score, BatchGen_CoQA
 from general_utils import flatten_json, free_text_to_span, normalize_text, build_embedding, load_glove_vocab, pre_proc, \
     get_context_span, find_answer_span, feature_gen, token2id
 from allennlp.modules.elmo import batch_to_ids
+import spacy
 
 
 parser = argparse.ArgumentParser(
@@ -32,14 +34,18 @@ parser.add_argument('-o', '--output_dir', default='pred_out/')
 parser.add_argument('--number', type=int, default=-1, help='id of the current prediction')
 parser.add_argument('-m', '--model', default='',
                     help='testing model pathname, e.g. "models/checkpoint_epoch_11.pt"')
-
+parser.add_argument('--no_match', action='store_true',
+                    help='do not extract the three exact matching features.')
 parser.add_argument('-bs', '--batch_size', default=1)
-
+parser.add_argument('--threads', type=int, default=multiprocessing.cpu_count(),
+                    help='number of threads for preprocessing.')
 parser.add_argument('--show', type=int, default=3)
 parser.add_argument('--seed', type=int, default=1023,
                     help='random seed for data shuffling, dropout, etc.')
 parser.add_argument('--cuda', type=bool, default=torch.cuda.is_available(),
                     help='whether to use GPU acceleration.')
+
+parser.add_argument("-i", "--input", default="CoQA/dev.json")
 
 args = parser.parse_args()
 if args.model == '':
@@ -82,9 +88,11 @@ def dev_eval():
     state_dict = checkpoint['state_dict']
     log.info('[model loaded.]')
 
-    test, test_embedding = load_dev_data(opt)
+    input_file = args.input
+    vocab, test_embedding = load_dev_data(opt)
+    test = build_test_data(opt, input_file, vocab)
     model = QAModel(opt, state_dict = state_dict)
-    CoQAEval = CoQAEvaluator("CoQA/dev.json")
+    CoQAEval = CoQAEvaluator(input_file)
     log.info('[Data loaded.]')
 
     model.setup_eval_embed(test_embedding)
@@ -95,7 +103,7 @@ def dev_eval():
     batches = BatchGen_CoQA(test, batch_size=args.batch_size, evaluation=True, gpu=args.cuda, dialog_ctx=opt['explicit_dialog_ctx'], precompute_elmo=args.batch_size)
     sample_idx = random.sample(range(len(batches)), args.show)
 
-    with open("CoQA/dev.json", "r", encoding="utf8") as f:
+    with open(input_file, "r", encoding="utf8") as f:
         dev_data = json.load(f)
 
     list_of_ids = []
@@ -129,75 +137,16 @@ def dev_eval():
          "turn_id": ids[1],
          "answer": pred})
     with open("model_dev_prediction.json", "w", encoding="utf8") as f:
-        json.dump(official_predictions, f)
+        json.dump(official_predictions, f, ensure_ascii=False)
 
-    f1 = CoQAEval.compute_turn_score_seq(predictions)
+    f1 = CoQAEval.compute_turn_score_seq(predictions).get('f1')
+    em = CoQAEval.compute_turn_score_seq(predictions).get('em')
+    precision = CoQAEval.compute_turn_score_seq(predictions).get('precision')
+    recall = CoQAEval.compute_turn_score_seq(predictions).get('recall')
     log.warning("Test F1: {:.3f}".format(f1 * 100.0))
-
-def test_eval():
-    log.info('[program starts.]')
-    checkpoint = torch.load(args.model)
-    opt = checkpoint['config']
-    opt['task_name'] = 'CoQA'
-    opt['cuda'] = args.cuda
-    opt['seed'] = args.seed
-    if opt.get('do_hierarchical_query') is None:
-        opt['do_hierarchical_query'] = False
-    state_dict = checkpoint['state_dict']
-    log.info('[model loaded.]')
-
-    build_test_data(opt, "CoQA/test.json")
-    test, test_embedding = load_test_data(opt)
-    model = QAModel(opt, state_dict = state_dict)
-    CoQAEval = CoQAEvaluator("CoQA/test.json")
-    log.info('[Data loaded.]')
-
-    model.setup_eval_embed(test_embedding)
-
-    if args.cuda:
-        model.cuda()
-
-    batches = BatchGen_CoQA(test, batch_size=args.batch_size, evaluation=True, gpu=args.cuda, dialog_ctx=opt['explicit_dialog_ctx'], precompute_elmo=args.batch_size)
-    sample_idx = random.sample(range(len(batches)), args.show)
-
-    with open("CoQA/test.json", "r", encoding="utf8") as f:
-        dev_data = json.load(f)
-
-    list_of_ids = []
-    for article in dev_data['data']:
-        id = article["id"]
-        for Qs in article["questions"]:
-            tid = Qs["turn_id"]
-            list_of_ids.append((id, tid))
-
-    predictions = []
-    for i, batch in enumerate(batches):
-        prediction = model.predict(batch)
-        predictions.extend(prediction)
-
-        if not (i in sample_idx):
-            continue
-
-        print("Story: ", batch[-4][0])
-        for j in range(len(batch[-2][0])):
-            print("Q: ", batch[-2][0][j])
-            print("A: ", prediction[j])
-            print("Gold A: ", batch[-1][0][j])
-            print("---")
-        print("")
-
-    assert(len(list_of_ids) == len(predictions))
-    official_predictions = []
-    for ids, pred in zip(list_of_ids, predictions):
-        official_predictions.append({
-         "id": ids[0],
-         "turn_id": ids[1],
-         "answer": pred})
-    with open("model_test_prediction.json", "w", encoding="utf8") as f:
-        json.dump(official_predictions, f)
-
-    f1 = CoQAEval.compute_turn_score_seq(predictions)
-    log.warning("Test F1: {:.3f}".format(f1 * 100.0))
+    log.warning("Test Precision: {:.3f}".format(precision * 100.0))
+    log.warning("Test Recall: {:.3f}".format(recall * 100.0))
+    log.warning("Test Exact Match: {:.3f}".format(em * 100.0))
 
 def load_dev_data(opt): # can be extended to true test set
     with open(os.path.join(args.dev_dir, 'dev_meta.msgpack'), 'rb') as f:
@@ -205,36 +154,27 @@ def load_dev_data(opt): # can be extended to true test set
     embedding = torch.Tensor(meta['embedding'])
     assert opt['embedding_dim'] == embedding.size(1)
 
-    with open(os.path.join(args.dev_dir, 'dev_data.msgpack'), 'rb') as f:
-        data = msgpack.load(f, encoding='utf8')
+    vocab = meta['vocab']
 
-    assert opt['num_features'] == len(data['context_features'][0][0]) + opt['explicit_dialog_ctx'] * 3
+    return vocab, embedding
 
-    dev = {'context': list(zip(
-                        data['context_ids'],
-                        data['context_tags'],
-                        data['context_ents'],
-                        data['context'],
-                        data['context_span'],
-                        data['1st_question'],
-                        data['context_tokenized'])),
-           'qa': list(zip(
-                        data['question_CID'],
-                        data['question_ids'],
-                        data['context_features'],
-                        data['answer_start'],
-                        data['answer_end'],
-                        data['rationale_start'],
-                        data['rationale_end'],
-                        data['answer_choice'],
-                        data['question'],
-                        data['answer'],
-                        data['question_tokenized']))
-          }
+def build_test_data(opt, dev_file, vocab):
+    nlp = spacy.load('vi_spacy_model', disable=['parser'])
 
-    return dev, embedding
+    # random.seed(args.seed)
+    # np.random.seed(args.seed)
 
-def build_test_data(opt, dev_file):
+    # logging.basicConfig(format='%(asctime)s %(message)s', level=logging.DEBUG,
+    #                     datefmt='%m/%d/%Y %I:%M:%S')
+    log = logging.getLogger(__name__)
+    # tags
+    vocab_tag = [''] + list(nlp.tagger.labels)
+    # entities
+    # log.info('start data preparing... (using {} threads)'.format(args.threads))
+
+    # glove_vocab = load_glove_vocab(wv_file, wv_dim)  # return a "set" of vocabulary
+    # log.info('glove loaded.')
+
     def proc_dev(ith, article):
         rows = []
         context = article['story']
@@ -308,49 +248,26 @@ def build_test_data(opt, dev_file):
 
     initial_len = len(dev)
     dev.dropna(inplace=True)  # modify self DataFrame
-    log.info('drop {0}/{1} inconsistent samples.'.format(initial_len - len(dev), initial_len))
+    # log.info('drop {0}/{1} inconsistent samples.'.format(initial_len - len(dev), initial_len))
     # log.info('answer span for dev is generated.')
 
     # features
     devC_tags, devC_ents, devC_features = feature_gen(devC_docs, dev.context_idx, devQ_docs, args.no_match)
-    log.info('features for dev is generated: {}, {}, {}'.format(len(devC_tags), len(devC_ents), len(devC_features)))
-
-
-    def build_dev_vocab(questions, contexts):  # most vocabulary comes from tr_vocab
-        existing_vocab = set(tr_vocab)
-        new_vocab = list(
-            set([w for doc in questions + contexts for w in doc if w not in existing_vocab and w in glove_vocab]))
-        vocab = tr_vocab + new_vocab
-        log.info('train vocab {0}, total vocab {1}'.format(len(tr_vocab), len(vocab)))
-        return vocab
-
+    # log.info('features for dev is generated: {}, {}, {}'.format(len(devC_tags), len(devC_ents), len(devC_features)))
+    vocab_ent = list(set([ent for sent in devC_ents for ent in sent]))
 
     # vocab
-    dev_vocab = build_dev_vocab(devQ_tokens, devC_tokens)  # tr_vocab is a subset of dev_vocab
+    dev_vocab = vocab  # tr_vocab is a subset of dev_vocab
     devC_ids = token2id(devC_tokens, dev_vocab, unk_id=1)
     devQ_ids = token2id(devQ_tokens, dev_vocab, unk_id=1)
     devQ_tokens = [["<S>"] + doc + ["</S>"] for doc in devQ_tokens]
     devQ_ids = [[2] + qsent + [3] for qsent in devQ_ids]
-    print(devQ_ids[:10])
+    # print(devQ_ids[:10])
     # tags
     devC_tag_ids = token2id(devC_tags, vocab_tag)  # vocab_tag same as training
     # entities
     devC_ent_ids = token2id(devC_ents, vocab_ent, unk_id=0)  # vocab_ent same as training
-    log.info('vocabulary for dev is built.')
-
-    dev_embedding = build_embedding(wv_file, dev_vocab, wv_dim)
-    # tr_embedding is a submatrix of dev_embedding
-    log.info('got embedding matrix for dev.')
-
-    # don't store row name in csv
-    # dev.to_csv('QuAC_data/dev.csv', index=False, encoding='utf8')
-
-    meta = {
-        'vocab': dev_vocab,
-        'embedding': dev_embedding.tolist()
-    }
-    with open('CoQA/test_meta.msgpack', 'wb') as f:
-        msgpack.dump(meta, f)
+    # log.info('vocabulary for dev is built.')
 
     prev_CID, first_question = -1, []
     for i, CID in enumerate(dev.context_idx):
@@ -358,7 +275,7 @@ def build_test_data(opt, dev_file):
             first_question.append(i)
         prev_CID = CID
 
-    result = {
+    data = {
         'question_ids': devQ_ids,
         'context_ids': devC_ids,
         'context_features': devC_features,  # exact match, tf
@@ -378,11 +295,34 @@ def build_test_data(opt, dev_file):
         'context_tokenized': devC_tokens,
         'question_tokenized': devQ_tokens
     }
-    with open('CoQA/test_data.msgpack', 'wb') as f:
-        msgpack.dump(result, f)
+    # with open('CoQA/test_data.msgpack', 'wb') as f:
+    #     msgpack.dump(result, f)
 
-    log.info('saved test to disk.')
-
+    # log.info('saved test to disk.')
+    dev = {'context': list(zip(
+                        data['context_ids'],
+                        data['context_tags'],
+                        data['context_ents'],
+                        data['context'],
+                        data['context_span'],
+                        data['1st_question'],
+                        data['context_tokenized'])),
+           'qa': list(zip(
+                        data['question_CID'],
+                        data['question_ids'],
+                        data['context_features'],
+                        data['answer_start'],
+                        data['answer_end'],
+                        data['rationale_start'],
+                        data['rationale_end'],
+                        data['answer_choice'],
+                        data['question'],
+                        data['answer'],
+                        data['question_tokenized']))
+          }
+    print("test_data built")
+    # embedding = torch.Tensor(meta['embedding'])
+    return dev
 
 if __name__ == '__main__':
-    main()
+    dev_eval()
