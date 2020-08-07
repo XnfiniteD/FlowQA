@@ -14,6 +14,7 @@ import multiprocessing
 import torch
 import msgpack
 import pickle
+import string
 import pandas as pd
 import numpy as np
 from QA_model.model_CoQA import QAModel
@@ -45,7 +46,7 @@ parser.add_argument('--seed', type=int, default=1023,
 parser.add_argument('--cuda', type=bool, default=torch.cuda.is_available(),
                     help='whether to use GPU acceleration.')
 
-parser.add_argument("-i", "--input", default="CoQA/dev.json")
+parser.add_argument("-i", "--input", default="CoQA/test.json")
 
 args = parser.parse_args()
 if args.model == '':
@@ -76,6 +77,9 @@ formatter = logging.Formatter(fmt='%(asctime)s %(message)s', datefmt='%m/%d/%Y %
 ch.setFormatter(formatter)
 log.addHandler(ch)
 
+
+nlp = spacy.load('vi_spacy_model', disable=['parser'])
+
 def dev_eval():
     log.info('[program starts.]')
     checkpoint = torch.load(args.model)
@@ -89,11 +93,13 @@ def dev_eval():
     log.info('[model loaded.]')
 
     input_file = args.input
+
     vocab, test_embedding = load_dev_data(opt)
     test = build_test_data(opt, input_file, vocab)
     model = QAModel(opt, state_dict = state_dict)
     CoQAEval = CoQAEvaluator(input_file)
     log.info('[Data loaded.]')
+
 
     model.setup_eval_embed(test_embedding)
 
@@ -105,6 +111,7 @@ def dev_eval():
 
     with open(input_file, "r", encoding="utf8") as f:
         dev_data = json.load(f)
+
 
     list_of_ids = []
     for article in dev_data['data']:
@@ -159,7 +166,6 @@ def load_dev_data(opt): # can be extended to true test set
     return vocab, embedding
 
 def build_test_data(opt, dev_file, vocab):
-    nlp = spacy.load('vi_spacy_model', disable=['parser'])
 
     # random.seed(args.seed)
     # np.random.seed(args.seed)

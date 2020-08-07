@@ -198,7 +198,7 @@ def main():
         for batch in batches:
             phrases = model.predict(batch)
             predictions.extend(phrases)
-        f1 = CoQAEval.compute_turn_score_seq(predictions)
+        f1 = CoQAEval.compute_turn_score_seq(predictions).get("f1")
         log.info("[dev F1: {:.3f}]".format(f1))
         best_val_score = f1
     else:
@@ -224,7 +224,7 @@ def main():
             for batch in batches:
                 phrases = model.predict(batch)
                 predictions.extend(phrases)
-            f1 = CoQAEval.compute_turn_score_seq(predictions)
+            f1 = CoQAEval.compute_turn_score_seq(predictions).get(["f1"])
 
         # save
         if args.save_best_only:
